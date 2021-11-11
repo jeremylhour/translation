@@ -4,9 +4,10 @@
 Created on Thu Nov 11 09:09:08 2021
 @author: jeremylhour
 """
-import os
+import os, sys
 from datetime import datetime
 import time
+from tqdm import tqdm
 
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
@@ -66,7 +67,7 @@ class Translator:
     def break_line(self, line):
         """
         break_line :
-            break the line if it's too long
+            break the line if it is too long
 
         @param line (str): string to break
         """
@@ -79,7 +80,7 @@ class Translator:
     def translate(self, text):
         """
         translate :
-            translate the chunk of text given
+            translate the chunk of given text
             
         @param text (str): str to translate
         """
@@ -119,19 +120,24 @@ if __name__=='__main__':
 
     IN_DIR = 'data/raw/'
     OUT_DIR = 'data/translated/'
-    FILE = '01_Rappels_ML.tex'
+    FILE = sys.argv[1]
 
     os.remove(OUT_DIR+FILE)
 
     traducteur = Translator()
 
     print("="*80)
-    print("PROCESS DATA")
+    print("TRANSLATE THE FILE")
     print("="*80)
+
+    with open(IN_DIR+FILE, 'r') as in_file:
+        n = len(in_file.readlines())
 
     start_time = time.time()
     with open(IN_DIR+FILE, 'r') as in_file, open(OUT_DIR+FILE, 'a') as out_file:
-        for line in in_file.readlines():
-            translated_text = traducteur.process(line)
-            out_file.write(translated_text+"\n")
+        with tqdm(total=n) as prog:
+            for line in in_file.readlines():
+                translated_text = traducteur.process(line)
+                out_file.write(translated_text+"\n")
+                prog.update(1)
     print(f"Time elapsed : {(time.time() - start_time):.2f} seconds ---")
