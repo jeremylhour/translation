@@ -4,7 +4,6 @@
 # Jeudi 11 Novembre 2021
 # @author :jeremylhour
 # ----------------------------------------------------------------------
-
 INSTALL=false
 
 

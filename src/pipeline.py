@@ -26,37 +26,37 @@ class Translator:
         # Initialize the model
         self.model = AutoModelForSeq2SeqLM.from_pretrained("Helsinki-NLP/opus-mt-fr-en")
         
-        # math mode, ignore translation when in math mode
-        self.math_begin = [
+        # out of text mode, ignore translation when in out of text mode
+        self.oot_begin = [
             "\begin{equation}",
             "\begin{equation*}",
             "\begin{align}",
             "\begin{align*}"
         ]
-        self.math_end = [
+        self.oot_end = [
             "\end{equation}",
             "\end{equation*}",
             "\end{align}",
             "\end{align*}"
         ]
-        self.math_mode = False
+        self.out_of_text_mode = False
 
         # Dictionnary for substitutions
         self.subs = {
             "\oe{}": "oe"
         }
     
-    def math_switch(self, line):
+    def oot_switch(self, line):
         """
-        match_switch :
-            turns math_mode on or off
+        oot_switch :
+            turns out_of_text_mode on or off
 
         @param line (str):
         """
-        if any([item in line for item in self.math_begin]):
-            self.math_mode = True
-        if any([item in line for item in self.math_end]):
-            self.math_mode = False
+        if any([item in line for item in self.oot_begin]):
+            self.out_of_text_mode = True
+        if any([item in line for item in self.oot_end]):
+            self.out_of_text_mode = False
         return None
 
     def replace_char(self, line):
@@ -96,21 +96,19 @@ class Translator:
         if text == '\n':
             return ""
         else:
-            self.math_switch(text)
-            if self.math_mode:
+            self.oot_switch(text)
+            if self.out_of_text_mode:
                 return text.strip()
             else:
                 text = self.replace_char(text)
                 text = self.break_line(text)
-                translation = []
-                for item in text:
-                    translation.append(self.translate(item))
+                translation = [self.translate(item) for item in text]
                 return ' '.join(translation)
 
 
 
 if __name__=='__main__':
-    print("\nThis script translates latex files from French to English.")
+    print("\nThis script translates latex files from French to English.\n")
     now = datetime.now()
     print(f"Launched on {now.strftime('%d, %b %Y, %H:%M:%S')} \n")
 
