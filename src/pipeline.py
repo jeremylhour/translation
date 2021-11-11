@@ -7,24 +7,32 @@ Created on Thu Nov 11 09:09:08 2021
 import os, sys
 from datetime import datetime
 import time
+import yaml
 from tqdm import tqdm
 
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-
+# ---------------------------------------------------------------------
+# MAIN CLASS
+# ---------------------------------------------------------------------
 class Translator:
-    def __init__(self, chunk_size_limit = 100):
+    def __init__(self, src, tgt, chunk_size_limit = 100):
         """
         init the translator for French to English translation
+            for more language see : https://huggingface.co/Helsinki-NLP
 
+        @param src (str): source language
+        @param tgt (str): target language
         @param chunk_size_limit : if line is larger than this limit, breaks it down by sentances.
         """
         self.chunk_size_limit = chunk_size_limit
+        self.src, self.tgt = src, tgt
+        model = "Helsinki-NLP/opus-mt-{src}-{tgt}".format(src=self.src, tgt=self.tgt)
 
         # Initialize the tokenizer
-        self.tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-fr-en")
+        self.tokenizer = AutoTokenizer.from_pretrained(model)
         # Initialize the model
-        self.model = AutoModelForSeq2SeqLM.from_pretrained("Helsinki-NLP/opus-mt-fr-en")
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(model)
         
         # out of text mode, ignore translation when in out of text mode
         self.oot_begin = [
@@ -116,13 +124,23 @@ if __name__=='__main__':
     print("LOADING THE CONFIG, INIT TRANSLATOR")
     print("="*80)
 
-    IN_DIR = 'data/raw/'
-    OUT_DIR = 'data/translated/'
+    CONFIG_FILE = "config/configuration.yaml"
+    with open(CONFIG_FILE, 'r') as stream:
+        config = yaml.safe_load(stream)
+
+    IN_DIR = config.get('DIR').get('IN')
+    OUT_DIR = config.get('DIR').get('OUT')
+    SRC = config.get('LANGUAGES').get('SRC')
+    TGT = config.get('LANGUAGES').get('TGT')
+
     FILE = sys.argv[1]
 
-    os.remove(OUT_DIR+FILE)
+    try:
+        os.remove(OUT_DIR+FILE)
+    except:
+        pass
 
-    traducteur = Translator()
+    traducteur = Translator(src=SRC, tgt=TGT)
 
     print("="*80)
     print("TRANSLATE THE FILE")

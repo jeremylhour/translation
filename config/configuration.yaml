@@ -1,0 +1,15 @@
+# -----------------------------------------------------
+# Config file :
+# - input/ouput dir
+# - source/target languages
+#
+# 11 novembre 2021
+# @author : jeremylhour
+# -----------------------------------------------------
+DIR:
+  IN: data/raw/               # input file location
+  OUT: data/translated/       # output file location
+
+LANGUAGES:
+  SRC: fr                     # source language
+  TGT: en                     # target language
