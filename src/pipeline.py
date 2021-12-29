@@ -133,10 +133,10 @@ class Translator:
         if match.group() in list(self.hash_table.values()):
             hash = list(self.hash_table.keys())[list(self.hash_table.values()).index(match.group())]
         else:
-            while True: 
+            while True:
                 hash = uuid.uuid1().hex.upper()[:10]
                 hash = removeConsecutiveDuplicates(hash)
-                if self.translate(hash) == hash:
+                if (self.translate(hash) == hash) and (hash not in self.hash_table):
                     break
             self.hash_table[hash] = match.group()
         return hash
