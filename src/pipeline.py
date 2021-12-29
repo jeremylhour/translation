@@ -4,7 +4,7 @@
 Created on Thu Nov 11 09:09:08 2021
 @author: jeremylhour
 """
-import os, sys
+import os
 from datetime import datetime
 import time
 import yaml
@@ -132,28 +132,32 @@ if __name__=='__main__':
     OUT_DIR = config.get('DIR').get('OUT')
     SRC = config.get('LANGUAGES').get('SRC')
     TGT = config.get('LANGUAGES').get('TGT')
-
-    FILE = sys.argv[1]
-
-    try:
-        os.remove(OUT_DIR+FILE)
-    except:
-        pass
-
+    
     traducteur = Translator(src=SRC, tgt=TGT)
 
+    
     print("="*80)
-    print("TRANSLATE THE FILE")
+    print("TRANSLATE FILES")
     print("="*80)
+    
+    tex_files = [file for file in os.listdir(IN_DIR) if file.endswith(".tex")]
+    print(str(len(tex_files))+" files to be translated : "+', '.join(tex_files))
+    
+    for file in tex_files:
+        try:
+            os.remove(OUT_DIR+file)
+        except:
+            pass
 
-    with open(IN_DIR+FILE, 'r') as in_file:
-        n = len(in_file.readlines())
-
-    start_time = time.time()
-    with open(IN_DIR+FILE, 'r') as in_file, open(OUT_DIR+FILE, 'a') as out_file:
-        with tqdm(total=n) as prog:
-            for line in in_file.readlines():
-                translated_text = traducteur.process(line)
-                out_file.write(translated_text+"\n")
-                prog.update(1)
-    print(f"Time elapsed : {(time.time() - start_time):.2f} seconds ---")
+        with open(IN_DIR+file, 'r') as in_file:
+            n = len(in_file.readlines())
+        
+        print("\nCurrently processing : {}".format(file))
+        start_time = time.time()
+        with open(IN_DIR+file, 'r') as in_file, open(OUT_DIR+file, 'a') as out_file:
+            with tqdm(total=n) as prog:
+                for line in in_file.readlines():
+                    translated_text = traducteur.process(line)
+                    out_file.write(translated_text+"\n")
+                    prog.update(1)
+        print(f"Time elapsed : {(time.time() - start_time):.2f} seconds ---")

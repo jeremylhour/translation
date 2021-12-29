@@ -15,9 +15,5 @@ fi
 
 echo RUNNING TRANSLATION
 echo WARNING : ALL FILES TO BE TRANSLATED NEED TO BE UPLOADED TO data/raw/
-for entry in data/raw/*
-do
-  echo *************
-  echo CURRENTLY PROCESSING : "$(basename $entry)"
-  python3 src/pipeline.py "$(basename $entry)"
-done
+
+python3 src/pipeline.py
