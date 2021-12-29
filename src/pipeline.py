@@ -46,6 +46,7 @@ class Translator:
             "\begin{align}",
             "\begin{align*}",
             "\begin{figure}",
+            "\begin{figure}[ht!]"
             "\begin{table}"
         ]
         self.oot_end = [
@@ -81,7 +82,13 @@ class Translator:
             re.compile(r'\\end{.*}', re.DOTALL),
             re.compile(r'\\textit{i\.e\.}', re.DOTALL),
             re.compile(r'\\textit{e\.g\.}', re.DOTALL),
-            re.compile(r'\\label{.*}', re.DOTALL)
+            re.compile(r'\\label{.*}', re.DOTALL),
+            re.compile(r'\\url{.*}', re.DOTALL),
+            re.compile(r'\\cite{.*}', re.DOTALL),
+            re.compile(r'\\citeauthor{.*}', re.DOTALL),
+            re.compile(r'\\citeyear{.*}', re.DOTALL),
+            re.compile(r'\\ref{.*}', re.DOTALL),
+            re.compile(r'\\eqref{.*}', re.DOTALL)
         ]
         
     def oot_switch(self, line):
@@ -127,7 +134,8 @@ class Translator:
             hash = list(self.hash_table.keys())[list(self.hash_table.values()).index(match.group())]
         else:
             while True: 
-                hash = "["+uuid.uuid4().hex+"]"
+                hash = uuid.uuid1().hex.upper()
+                hash = removeConsecutiveDuplicates(hash)
                 if self.translate(hash) == hash:
                     break
             self.hash_table[hash] = match.group()
@@ -171,7 +179,8 @@ class Translator:
         process :
             main method for processing the text
         """
-        if text == '\n':
+        empty_line = re.compile(r'^\s*$', re.DOTALL)
+        if empty_line.search(text):
             return ""
         else:
             self.oot_switch(text)
@@ -184,6 +193,13 @@ class Translator:
                 translation = [self.translate(item) for item in text] # translate
                 translation = [self.decode(item) for item in translation] # decode regex
                 return ' '.join(translation)
+            
+def removeConsecutiveDuplicates(s):
+    if len(s)<2:
+        return s
+    if s[0]!=s[1]:
+        return s[0]+removeConsecutiveDuplicates(s[1:])
+    return removeConsecutiveDuplicates(s[1:])
 
 
 if __name__=='__main__':
