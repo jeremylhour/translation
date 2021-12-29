@@ -78,17 +78,17 @@ class Translator:
             re.compile(r'\\begin{float}.*?\\end{float}', re.DOTALL),
             re.compile(r'\\begin{tikz}.*?\\end{tikz}', re.DOTALL),
             re.compile(r'\$.*?\$', re.DOTALL),
-            re.compile(r'\\begin{.*}', re.DOTALL),
-            re.compile(r'\\end{.*}', re.DOTALL),
+            re.compile(r'\\begin{.*?}', re.DOTALL),
+            re.compile(r'\\end{.*?}', re.DOTALL),
             re.compile(r'\\textit{i\.e\.}', re.DOTALL),
             re.compile(r'\\textit{e\.g\.}', re.DOTALL),
-            re.compile(r'\\label{.*}', re.DOTALL),
-            re.compile(r'\\url{.*}', re.DOTALL),
-            re.compile(r'\\cite{.*}', re.DOTALL),
-            re.compile(r'\\citeauthor{.*}', re.DOTALL),
-            re.compile(r'\\citeyear{.*}', re.DOTALL),
-            re.compile(r'\\ref{.*}', re.DOTALL),
-            re.compile(r'\\eqref{.*}', re.DOTALL)
+            re.compile(r'\\label{.*?}', re.DOTALL),
+            re.compile(r'\\url{.*?}', re.DOTALL),
+            re.compile(r'\\cite{.*?}', re.DOTALL),
+            re.compile(r'\\citeauthor{.*?}', re.DOTALL),
+            re.compile(r'\\citeyear{.*?}', re.DOTALL),
+            re.compile(r'\\ref{.*?}', re.DOTALL),
+            re.compile(r'\\eqref{.*?}', re.DOTALL)
         ]
         
     def oot_switch(self, line):
@@ -118,7 +118,7 @@ class Translator:
         """
         line = line.strip()
         if len(line) > self.chunk_size_limit:
-            return [item for item in line.split('.') if item]
+            return [item for item in line.split('. ') if item]
         else:
             return [line]
         
@@ -134,7 +134,7 @@ class Translator:
             hash = list(self.hash_table.keys())[list(self.hash_table.values()).index(match.group())]
         else:
             while True: 
-                hash = uuid.uuid1().hex.upper()
+                hash = uuid.uuid1().hex.upper()[:10]
                 hash = removeConsecutiveDuplicates(hash)
                 if self.translate(hash) == hash:
                     break
