@@ -2,15 +2,20 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Nov 11 09:09:08 2021
+
 @author: jeremylhour
 """
 import os
+import shutil
 from datetime import datetime
 import time
 import yaml
 from tqdm import tqdm
+import re
+import uuid
 
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
 
 # ---------------------------------------------------------------------
 # MAIN CLASS
@@ -39,13 +44,17 @@ class Translator:
             "\begin{equation}",
             "\begin{equation*}",
             "\begin{align}",
-            "\begin{align*}"
+            "\begin{align*}",
+            "\begin{figure}",
+            "\begin{table}"
         ]
         self.oot_end = [
             "\end{equation}",
             "\end{equation*}",
             "\end{align}",
-            "\end{align*}"
+            "\end{align*}",
+            "\end{figure}",
+            "\end{table}"
         ]
         self.out_of_text_mode = False
 
@@ -53,7 +62,28 @@ class Translator:
         self.subs = {
             "\oe{}": "oe"
         }
-    
+        
+        # List for hashing
+        self.hash_table = {}
+        self.hash_expr = [
+            re.compile(r'.*?\\begin{document}', re.DOTALL),
+            re.compile(r'\\begin{figure}.*?\\end{figure}', re.DOTALL),
+            re.compile(r'\\begin{equation}.*?\\end{equation}', re.DOTALL),
+            re.compile(r'\\begin{equation\*}.*?\\end{equation\*}', re.DOTALL),
+            re.compile(r'\\begin{align}.*?\\end{align}', re.DOTALL),
+            re.compile(r'\\begin{align\*}.*?\\end{align\*}', re.DOTALL),
+            re.compile(r'\\begin{table}.*?\\end{table}', re.DOTALL),
+            re.compile(r'\\begin{tabular}.*?\\end{tabular}', re.DOTALL),
+            re.compile(r'\\begin{float}.*?\\end{float}', re.DOTALL),
+            re.compile(r'\\begin{tikz}.*?\\end{tikz}', re.DOTALL),
+            re.compile(r'\$.*?\$', re.DOTALL),
+            re.compile(r'\\begin{.*}', re.DOTALL),
+            re.compile(r'\\end{.*}', re.DOTALL),
+            re.compile(r'\\textit{i\.e\.}', re.DOTALL),
+            re.compile(r'\\textit{e\.g\.}', re.DOTALL),
+            re.compile(r'\\label{.*}', re.DOTALL)
+        ]
+        
     def oot_switch(self, line):
         """
         oot_switch :
@@ -84,7 +114,47 @@ class Translator:
             return [item for item in line.split('.') if item]
         else:
             return [line]
-
+        
+    def hash_replace(self, match):
+        """
+        hash_replace :
+            replace the given regex by a hash,
+            enforces that the hash is translation invariant
+            
+        @param match : regular expression
+        """
+        if match.group() in list(self.hash_table.values()):
+            hash = list(self.hash_table.keys())[list(self.hash_table.values()).index(match.group())]
+        else:
+            while True: 
+                hash = "["+uuid.uuid4().hex+"]"
+                if self.translate(hash) == hash:
+                    break
+            self.hash_table[hash] = match.group()
+        return hash
+    
+    def encode(self, text):
+        """
+        encode :
+            replace the expression by the hash
+            
+        @param text (str):
+        """
+        for expression in self.hash_expr:
+            text = expression.sub(self.hash_replace, text)
+        return text
+    
+    def decode(self, text):
+        """
+        decode :
+            decode the string after translation
+            
+        @param text (str):
+        """
+        for key, value in self.hash_table.items():
+            text = text.replace(key, value)
+        return text
+        
     def translate(self, text):
         """
         translate :
@@ -108,11 +178,12 @@ class Translator:
             if self.out_of_text_mode:
                 return text.strip()
             else:
-                text = self.replace_char(text)
-                text = self.break_line(text)
-                translation = [self.translate(item) for item in text]
+                text = self.replace_char(text) # replace chars
+                text = self.encode(text) # encode regex
+                text = self.break_line(text) # break if too long
+                translation = [self.translate(item) for item in text] # translate
+                translation = [self.decode(item) for item in translation] # decode regex
                 return ' '.join(translation)
-
 
 
 if __name__=='__main__':
@@ -161,3 +232,10 @@ if __name__=='__main__':
                     out_file.write(translated_text+"\n")
                     prog.update(1)
         print(f"Time elapsed : {(time.time() - start_time):.2f} seconds ---")
+        
+        
+    print("="*80)
+    print("ZIPPING FILES")
+    print("="*80)
+    
+    shutil.make_archive("translated.zip", 'zip', OUT_DIR)
