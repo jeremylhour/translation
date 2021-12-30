@@ -133,10 +133,10 @@ class Translator:
         if match.group() in list(self.hash_table.values()):
             hash = list(self.hash_table.keys())[list(self.hash_table.values()).index(match.group())]
         else:
-            while True:
+            while True: 
                 hash = uuid.uuid1().hex.upper()[:10]
                 hash = removeConsecutiveDuplicates(hash)
-                if (self.translate(hash) == hash) and (hash not in self.hash_table):
+                if self.translate(hash) == hash:
                     break
             self.hash_table[hash] = match.group()
         return hash
@@ -179,20 +179,32 @@ class Translator:
         process :
             main method for processing the text
         """
+        # 1. Encode the whole text
+        print("    Encoding text...")
+        start_time = time.time()
+        encoded_text = self.replace_char(text) # replace chars
+        encoded_text = self.encode(encoded_text) # encode regex
+        print(f"    Encoding time : {(time.time() - start_time):.2f} seconds ---")
+        
+        # 2. Break into lines
+        lines = [item for item in encoded_text.split('\n') if item]
+        n = len(lines)
+        
+        # 3. Process each line
         empty_line = re.compile(r'^\s*$', re.DOTALL)
-        if empty_line.search(text):
-            return ""
-        else:
-            self.oot_switch(text)
-            if self.out_of_text_mode:
-                return text.strip()
-            else:
-                text = self.replace_char(text) # replace chars
-                text = self.encode(text) # encode regex
-                text = self.break_line(text) # break if too long
-                translation = [self.translate(item) for item in text] # translate
-                translation = [self.decode(item) for item in translation] # decode regex
-                return ' '.join(translation)
+        translation = []
+        
+        with tqdm(total=n) as prog:
+            for line in lines:
+                if empty_line.search(line):
+                    translation.append("")
+                else:
+                    broken_line = self.break_line(line) # break if too long
+                    translated_line = [self.translate(item) for item in broken_line] # translate
+                    translated_line = [self.decode(item) for item in translated_line] # decode regex
+                    translation.append(' '.join(translated_line))
+                prog.update(1)
+        return translation
             
 def removeConsecutiveDuplicates(s):
     if len(s)<2:
@@ -207,6 +219,7 @@ if __name__=='__main__':
     now = datetime.now()
     print(f"Launched on {now.strftime('%d, %b %Y, %H:%M:%S')} \n")
 
+    
     print("="*80)
     print("LOADING THE CONFIG, INIT TRANSLATOR")
     print("="*80)
@@ -231,22 +244,24 @@ if __name__=='__main__':
     print(str(len(tex_files))+" files to be translated : "+', '.join(tex_files))
     
     for file in tex_files:
-        try:
+        if os.path.exists(OUT_DIR+file):
             os.remove(OUT_DIR+file)
-        except:
-            pass
-
-        with open(IN_DIR+file, 'r') as in_file:
-            n = len(in_file.readlines())
         
-        print("\nCurrently processing : {}".format(file))
+        print("\nCURRENTLY PROCESSING : {}".format(file))
         start_time = time.time()
-        with open(IN_DIR+file, 'r') as in_file, open(OUT_DIR+file, 'a') as out_file:
-            with tqdm(total=n) as prog:
-                for line in in_file.readlines():
-                    translated_text = traducteur.process(line)
-                    out_file.write(translated_text+"\n")
-                    prog.update(1)
+        
+        # 1. Read the whole text
+        with open(IN_DIR+file, 'r') as in_file:
+            whole_text = ' '.join([line for line in in_file.readlines()])
+        
+        # 2. Process it
+        translated_text = traducteur.process(whole_text)
+        
+        # 3. Write to file
+        with open(OUT_DIR+file, 'a') as out_file:
+            for line in translated_text:
+                out_file.write(line+"\n")
+        
         print(f"Time elapsed : {(time.time() - start_time):.2f} seconds ---")
         
         
@@ -254,4 +269,4 @@ if __name__=='__main__':
     print("ZIPPING FILES")
     print("="*80)
     
-    shutil.make_archive("translated.zip", 'zip', OUT_DIR)
+    shutil.make_archive("translated", 'zip', OUT_DIR)
