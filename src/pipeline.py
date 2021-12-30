@@ -79,6 +79,7 @@ class Translator:
             re.compile(r'\\begin{tikz}.*?\\end{tikz}', re.DOTALL),
             re.compile(r'\$.*?\$', re.DOTALL),
             re.compile(r'\\begin{.*?}', re.DOTALL),
+            re.compile(r'\\texttt{.*?}', re.DOTALL),
             re.compile(r'\\end{.*?}', re.DOTALL),
             re.compile(r'\\textit{i\.e\.}', re.DOTALL),
             re.compile(r'\\textit{e\.g\.}', re.DOTALL),
@@ -157,7 +158,7 @@ class Translator:
         decode :
             decode the string after translation
             
-        @param text (str):
+        @param text (str): text to decode
         """
         for key, value in self.hash_table.items():
             text = text.replace(key, value)
@@ -178,6 +179,8 @@ class Translator:
         """
         process :
             main method for processing the text
+            
+        @param text (str): the whole text to encore and translate
         """
         # 1. Encode the whole text
         print("    Encoding text...")
