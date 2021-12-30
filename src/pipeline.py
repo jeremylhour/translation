@@ -38,26 +38,6 @@ class Translator:
         self.tokenizer = AutoTokenizer.from_pretrained(model)
         # Initialize the model
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model)
-        
-        # out of text mode, ignore translation when in out of text mode
-        self.oot_begin = [
-            "\begin{equation}",
-            "\begin{equation*}",
-            "\begin{align}",
-            "\begin{align*}",
-            "\begin{figure}",
-            "\begin{figure}[ht!]"
-            "\begin{table}"
-        ]
-        self.oot_end = [
-            "\end{equation}",
-            "\end{equation*}",
-            "\end{align}",
-            "\end{align*}",
-            "\end{figure}",
-            "\end{table}"
-        ]
-        self.out_of_text_mode = False
 
         # Dictionnary for substitutions
         self.subs = {
@@ -67,6 +47,8 @@ class Translator:
         # List for hashing
         self.hash_table = {}
         self.hash_expr = [
+            re.compile(r'\\%', re.DOTALL),
+            re.compile(r'\\$', re.DOTALL),
             re.compile(r'.*?\\begin{document}', re.DOTALL),
             re.compile(r'\\begin{figure}.*?\\end{figure}', re.DOTALL),
             re.compile(r'\\begin{equation}.*?\\end{equation}', re.DOTALL),
@@ -80,9 +62,8 @@ class Translator:
             re.compile(r'\$.*?\$', re.DOTALL),
             re.compile(r'\\begin{.*?}', re.DOTALL),
             re.compile(r'\\texttt{.*?}', re.DOTALL),
+            re.compile(r'\\textit{.*?}', re.DOTALL),
             re.compile(r'\\end{.*?}', re.DOTALL),
-            re.compile(r'\\textit{i\.e\.}', re.DOTALL),
-            re.compile(r'\\textit{e\.g\.}', re.DOTALL),
             re.compile(r'\\label{.*?}', re.DOTALL),
             re.compile(r'\\url{.*?}', re.DOTALL),
             re.compile(r'\\cite{.*?}', re.DOTALL),
