@@ -47,8 +47,8 @@ class Translator:
         # List for hashing
         self.hash_table = {}
         self.hash_expr = [
-            re.compile(r'\\%', re.DOTALL),
-            re.compile(r'\\$', re.DOTALL),
+            re.compile(r'\\\$', re.DOTALL),
+            re.compile(r'\\newpage', re.DOTALL),
             re.compile(r'.*?\\begin{document}', re.DOTALL),
             re.compile(r'\\begin{figure}.*?\\end{figure}', re.DOTALL),
             re.compile(r'\\begin{equation}.*?\\end{equation}', re.DOTALL),
@@ -70,7 +70,8 @@ class Translator:
             re.compile(r'\\citeauthor{.*?}', re.DOTALL),
             re.compile(r'\\citeyear{.*?}', re.DOTALL),
             re.compile(r'\\ref{.*?}', re.DOTALL),
-            re.compile(r'\\eqref{.*?}', re.DOTALL)
+            re.compile(r'\\eqref{.*?}', re.DOTALL),
+            re.compile(r'\\\%', re.DOTALL),
         ]
         
     def oot_switch(self, line):
@@ -117,8 +118,7 @@ class Translator:
         else:
             while True: 
                 hash = uuid.uuid1().hex.upper()[:10]
-                hash = removeConsecutiveDuplicates(hash)
-                if self.translate(hash) == hash:
+                if (self.translate(hash) == hash) and (hash not in self.hash_table.keys()):
                     break
             self.hash_table[hash] = match.group()
         return hash
