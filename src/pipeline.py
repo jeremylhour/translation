@@ -59,7 +59,7 @@ class Translator:
             re.compile(r'\\begin{tabular}.*?\\end{tabular}', re.DOTALL),
             re.compile(r'\\begin{float}.*?\\end{float}', re.DOTALL),
             re.compile(r'\\begin{tikz}.*?\\end{tikz}', re.DOTALL),
-            re.compile(r'\$.*?\$', re.DOTALL),
+            re.compile(r'\$+.*?\$+', re.DOTALL),
             re.compile(r'\\begin{.*?}', re.DOTALL),
             re.compile(r'\\texttt{.*?}', re.DOTALL),
             re.compile(r'\\textit{.*?}', re.DOTALL),
@@ -73,35 +73,30 @@ class Translator:
             re.compile(r'\\eqref{.*?}', re.DOTALL),
             re.compile(r'\\\%', re.DOTALL),
         ]
-        
-    def oot_switch(self, line):
-        """
-        oot_switch :
-            turns out_of_text_mode on or off
 
-        @param line (str):
+    def replace_char(self, string):
         """
-        if any([item in line for item in self.oot_begin]):
-            self.out_of_text_mode = True
-        if any([item in line for item in self.oot_end]):
-            self.out_of_text_mode = False
-        return None
-
-    def replace_char(self, line):
+        replace_char :
+            replace the specified char in the given string
+            
+        @param string (str):
+        """
         for item in self.subs:
-            line = line.replace(item, self.subs[item])
-        return line
+            string = string.replace(item, self.subs[item])
+        return string
 
     def break_line(self, line):
         """
         break_line :
-            break the line if it is too long
+            break the line into sentences if it is too long,
+            returns a list of all the sentences
 
         @param line (str): string to break
         """
         line = line.strip()
         if len(line) > self.chunk_size_limit:
-            return [item for item in line.split('. ') if item]
+            return [item.strip() for item in re.findall('.*?[.!\?]', line)]
+            #return [item for item in line.split('. ') if item]
         else:
             return [line]
         
@@ -109,7 +104,7 @@ class Translator:
         """
         hash_replace :
             replace the given regex by a hash,
-            enforces that the hash is translation invariant
+            enforces that the hash is translation invariant and unique
             
         @param match : regular expression
         """
@@ -137,7 +132,7 @@ class Translator:
     def decode(self, text):
         """
         decode :
-            decode the string after translation
+            decode the string from the specified hash_dict
             
         @param text (str): text to decode
         """
@@ -167,8 +162,8 @@ class Translator:
         print("    Encoding text...")
         start_time = time.time()
         encoded_text = self.replace_char(text) # replace chars
-        encoded_text = self.encode(encoded_text) # encode regex
-        print(f"    Encoding time : {(time.time() - start_time):.2f} seconds ---")
+        encoded_text = self.encode(encoded_text) # encode specified regex
+        print(f"    Encoding time : {datetime.timedelta(seconds=int(time.time() - start_time))}")
         
         # 2. Break into lines
         lines = [item for item in encoded_text.split('\n') if item]
@@ -246,7 +241,7 @@ if __name__=='__main__':
             for line in translated_text:
                 out_file.write(line+"\n")
         
-        print(f"Time elapsed : {(time.time() - start_time):.2f} seconds ---")
+        print(f"Time elapsed : {datetime.timedelta(seconds=int(time.time() - start_time))}")
         
         
     print("="*80)
