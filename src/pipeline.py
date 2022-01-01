@@ -7,7 +7,7 @@ Created on Thu Nov 11 09:09:08 2021
 """
 import os
 import shutil
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import yaml
 from tqdm import tqdm
@@ -47,7 +47,6 @@ class Translator:
         # List for hashing
         self.hash_table = {}
         self.hash_expr = [
-            re.compile(r'\\\$', re.DOTALL),
             re.compile(r'\\newpage', re.DOTALL),
             re.compile(r'.*?\\begin{document}', re.DOTALL),
             re.compile(r'\\begin{figure}.*?\\end{figure}', re.DOTALL),
@@ -59,19 +58,23 @@ class Translator:
             re.compile(r'\\begin{tabular}.*?\\end{tabular}', re.DOTALL),
             re.compile(r'\\begin{float}.*?\\end{float}', re.DOTALL),
             re.compile(r'\\begin{tikz}.*?\\end{tikz}', re.DOTALL),
+            re.compile(r'\\\$', re.DOTALL),
             re.compile(r'\$+.*?\$+', re.DOTALL),
             re.compile(r'\\begin{.*?}', re.DOTALL),
-            re.compile(r'\\texttt{.*?}', re.DOTALL),
-            re.compile(r'\\textit{.*?}', re.DOTALL),
             re.compile(r'\\end{.*?}', re.DOTALL),
+            re.compile(r'\\texttt{.*?}', re.DOTALL),
+            re.compile(r'\\textbf{.*?}', re.DOTALL),
+            re.compile(r'\\emph{.*?}', re.DOTALL),
+            re.compile(r'\\textit{.*?}', re.DOTALL),
             re.compile(r'\\label{.*?}', re.DOTALL),
             re.compile(r'\\url{.*?}', re.DOTALL),
-            re.compile(r'\\cite{.*?}', re.DOTALL),
-            re.compile(r'\\citeauthor{.*?}', re.DOTALL),
-            re.compile(r'\\citeyear{.*?}', re.DOTALL),
+            re.compile(r'\\cite\[*?.*?\]*?{.*?}', re.DOTALL),
+            re.compile(r'\\citeauthor\[*?.*?\]*?{.*?}', re.DOTALL),
+            re.compile(r'\\citeyear\[*?.*?\]*?{.*?}', re.DOTALL),
             re.compile(r'\\ref{.*?}', re.DOTALL),
             re.compile(r'\\eqref{.*?}', re.DOTALL),
             re.compile(r'\\\%', re.DOTALL),
+            re.compile(r'\\item', re.DOTALL)
         ]
 
     def replace_char(self, string):
@@ -163,7 +166,7 @@ class Translator:
         start_time = time.time()
         encoded_text = self.replace_char(text) # replace chars
         encoded_text = self.encode(encoded_text) # encode specified regex
-        print(f"    Encoding time : {datetime.timedelta(seconds=int(time.time() - start_time))}")
+        print(f"    Encoding time : {timedelta(seconds=int(time.time() - start_time))}")
         
         # 2. Break into lines
         lines = [item for item in encoded_text.split('\n') if item]
@@ -241,7 +244,7 @@ if __name__=='__main__':
             for line in translated_text:
                 out_file.write(line+"\n")
         
-        print(f"Time elapsed : {datetime.timedelta(seconds=int(time.time() - start_time))}")
+        print(f"Time elapsed : {timedelta(seconds=int(time.time() - start_time))}")
         
         
     print("="*80)
