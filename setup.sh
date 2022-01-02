@@ -11,6 +11,9 @@ INSTALL=false
 if [ "$INSTALL" = true ] ; then
     echo INSTALLING PACKAGES
     pip install -r requirements.txt
+    
+    echo DOWNLOADING EXTRA PACKAGES FROM PYTHON
+    python3 setup_python.py
 fi
 
 echo RUNNING TRANSLATION

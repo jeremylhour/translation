@@ -15,6 +15,7 @@ import re
 import uuid
 
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from nltk.tokenize import sent_tokenize
 
 
 # ---------------------------------------------------------------------
@@ -64,6 +65,8 @@ class Translator:
             re.compile(r'\\end{.*?}', re.DOTALL),
             re.compile(r'\\texttt{.*?}', re.DOTALL),
             re.compile(r'\\textbf{.*?}', re.DOTALL),
+            re.compile(r'\\paragraph{.*?}', re.DOTALL),
+            re.compile(r'\\q{.*?}', re.DOTALL),
             re.compile(r'\\emph{.*?}', re.DOTALL),
             re.compile(r'\\textit{.*?}', re.DOTALL),
             re.compile(r'\\label{.*?}', re.DOTALL),
@@ -181,7 +184,7 @@ class Translator:
                 if empty_line.search(line):
                     translation.append("")
                 else:
-                    broken_line = self.break_line(line) # break if too long
+                    broken_line = sent_tokenize(line) # break if too long
                     translated_line = [self.translate(item) for item in broken_line] # translate
                     translated_line = [self.decode(item) for item in translated_line] # decode regex
                     translation.append(' '.join(translated_line))
