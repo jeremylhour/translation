@@ -4,3 +4,5 @@ sentencepiece
 tqdm
 pyyaml
 nltk
+pandas
+datasets

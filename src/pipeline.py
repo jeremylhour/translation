@@ -6,38 +6,49 @@ Created on Thu Nov 11 09:09:08 2021
 @author: jeremylhour
 """
 import os
+import sys
 import shutil
+import pandas as pd
 from datetime import datetime, timedelta
 import time
 import yaml
-from tqdm import tqdm
 import re
 import uuid
+import logging
 
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-from nltk.tokenize import sent_tokenize
+from datasets import Dataset
 
+from inference_tools import break_sentence, compute_length, translate
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
 
 # ---------------------------------------------------------------------
 # MAIN CLASS
 # ---------------------------------------------------------------------
 class Translator:
-    def __init__(self, src, tgt, chunk_size_limit = 100):
+    def __init__(self, src, tgt, batch_size : int = 10):
         """
         init the translator for French to English translation
             for more language see : https://huggingface.co/Helsinki-NLP
 
-        @param src (str): source language
-        @param tgt (str): target language
-        @param chunk_size_limit : if line is larger than this limit, breaks it down by sentances.
+        Args:
+            src (str): source language.
+            tgt (str): target language.
+            batch_size (int): batch_size for Transformers inference.
         """
-        self.chunk_size_limit = chunk_size_limit
+        self.batch_size = batch_size
         self.src, self.tgt = src, tgt
         model = "Helsinki-NLP/opus-mt-{src}-{tgt}".format(src=self.src, tgt=self.tgt)
 
-        # Initialize the tokenizer
+        # Initialize the tokenizer and model
         self.tokenizer = AutoTokenizer.from_pretrained(model)
-        # Initialize the model
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model)
 
         # Dictionnary for substitutions
@@ -82,54 +93,42 @@ class Translator:
 
     def replace_char(self, string):
         """
-        replace_char :
+        replace_char:
             replace the specified char in the given string
-            
-        @param string (str):
+        
+        Args:
+            string (str):
         """
         for item in self.subs:
             string = string.replace(item, self.subs[item])
         return string
-
-    def break_line(self, line):
-        """
-        break_line :
-            break the line into sentences if it is too long,
-            returns a list of all the sentences
-
-        @param line (str): string to break
-        """
-        line = line.strip()
-        if len(line) > self.chunk_size_limit:
-            return [item.strip() for item in re.findall('.*?[.!\?]', line)]
-            #return [item for item in line.split('. ') if item]
-        else:
-            return [line]
         
     def hash_replace(self, match):
         """
-        hash_replace :
+        hash_replace:
             replace the given regex by a hash,
             enforces that the hash is translation invariant and unique
-            
-        @param match : regular expression
+        
+        Args:
+            match: regular expression
         """
         if match.group() in list(self.hash_table.values()):
             hash = list(self.hash_table.keys())[list(self.hash_table.values()).index(match.group())]
         else:
             while True: 
                 hash = uuid.uuid1().hex.upper()[:10]
-                if (self.translate(hash) == hash) and (hash not in self.hash_table.keys()):
+                if (self.dummy_translate(hash) == hash) and (hash not in self.hash_table.keys()):
                     break
             self.hash_table[hash] = match.group()
         return hash
     
     def encode(self, text):
         """
-        encode :
+        encode:
             replace the expression by the hash
             
-        @param text (str):
+        Args:
+            text (str):
         """
         for expression in self.hash_expr:
             text = expression.sub(self.hash_replace, text)
@@ -137,59 +136,99 @@ class Translator:
     
     def decode(self, text):
         """
-        decode :
+        decode:
             decode the string from the specified hash_dict
-            
-        @param text (str): text to decode
+        
+        Args:
+            text (str): text to decode
         """
         for key, value in self.hash_table.items():
             text = text.replace(key, value)
         return text
-        
-    def translate(self, text):
+
+    def dummy_translate(self, text):
         """
-        translate :
-            translate the chunk of given text
-            
-        @param text (str): str to translate
+        dummy_translate :
+            translate the chunk of given text. Only used to make sure hashed lines will be preserved.
+        
+        Args:
+            text (str): str to translate
         """
         tokenized_text = self.tokenizer([text], return_tensors="pt")
         translation = self.model.generate(**tokenized_text)
         return self.tokenizer.batch_decode(translation, skip_special_tokens=True)[0]
 
+    def translate_document(self, lines):
+        """
+        translate_document:
+            Translates the document using the HuggingFace technology (datasets and transformers).
+            Allows for 2x speed increase
+
+        Args:
+            lines (list of str): The lines to translate.
+
+        Returns:
+            The translated lines.
+        """
+        # Create a HuggingFace Dataset object
+        ds = Dataset.from_dict({
+            'id': range(len(lines)),
+            'text': lines
+        })
+
+        # Break into sentences, sort by length (for speed-up), run inference
+        ds = ds.map(break_sentence, batched=True, batch_size=self.batch_size, remove_columns=ds.column_names)
+        ds = ds.map(lambda x: compute_length(x, text='sentence'), batched=True).sort('length', reverse=True)
+        ds = ds.map(lambda x: translate(x, self.tokenizer, self.model, text='sentence'), batched=True, batch_size=self.batch_size).sort('id')
+
+        # Add back the empty lines
+        ds.set_format("pandas")
+        df = ds[:].sort_values(['id', 'pos_id']).copy()
+
+        missing_ids = [i for i in range(df.id.max()) if i not in df.id.unique()]
+        missing_df = pd.DataFrame.from_dict({
+            'id': missing_ids,
+            'sentence': [' ']*len(missing_ids),
+            'pos_id': [0]*len(missing_ids),
+            'length': [0]*len(missing_ids),
+            'translation': [' ']*len(missing_ids)
+        })
+
+        # Finally reform the original lines, including the empty ones, for 1-to-1 mapping with original document
+        translated_lines = pd.concat([df, missing_df], axis=0)\
+                            .sort_values(['id', 'pos_id'])\
+                            .groupby('id')['translation']\
+                            .apply(lambda x: ' '.join(x))\
+                            .to_list()
+        return translated_lines
+
     def process(self, text):
         """
-        process :
+        process:
             main method for processing the text
-            
-        @param text (str): the whole text to encore and translate
+        
+        Args:
+            text (str): the whole text to encore and translate.
+            Lines are separated by line breaks.
         """
         # 1. Encode the whole text
-        print("    Encoding text...")
+        logging.info("Encoding text.")
         start_time = time.time()
         encoded_text = self.replace_char(text) # replace chars
         encoded_text = self.encode(encoded_text) # encode specified regex
-        print(f"    Encoding time : {timedelta(seconds=int(time.time() - start_time))}")
+        logging.info(f"Encoding time: {timedelta(seconds=int(time.time() - start_time))}.")
         
         # 2. Break into lines
         lines = [item for item in encoded_text.split('\n') if item]
-        n = len(lines)
         
-        # 3. Process each line
-        empty_line = re.compile(r'^\s*$', re.DOTALL)
-        translation = []
-        
-        with tqdm(total=n) as prog:
-            for line in lines:
-                if empty_line.search(line):
-                    translation.append("")
-                else:
-                    broken_line = sent_tokenize(line) # break if too long
-                    translated_line = [self.translate(item) for item in broken_line] # translate
-                    translated_line = [self.decode(item) for item in translated_line] # decode regex
-                    translation.append(' '.join(translated_line))
-                prog.update(1)
-        return translation
+        # 3. Process the whole document at once
+        logging.info("Translating lines.")
+        translated_lines = self.translate_document(lines)
+
+        # 4. Decode the lines
+        logging.info("Decoding lines.")
+        translated_lines = [self.decode(item) for item in translated_lines]
+        return translated_lines
             
 def removeConsecutiveDuplicates(s):
     if len(s)<2:
@@ -200,15 +239,10 @@ def removeConsecutiveDuplicates(s):
 
 
 if __name__=='__main__':
-    print("\nThis script translates latex files from French to English.\n")
     now = datetime.now()
-    print(f"Launched on {now.strftime('%d, %b %Y, %H:%M:%S')} \n")
+    logging.info(f"\nThis script translates latex files while preserving equations and special expressions.\nLaunched on {now.strftime('%d, %b %Y, %H:%M:%S')} \n")
 
-    
-    print("="*80)
-    print("LOADING THE CONFIG, INIT TRANSLATOR")
-    print("="*80)
-
+    logging.info("Loading config.")
     CONFIG_FILE = "config/configuration.yaml"
     with open(CONFIG_FILE, 'r') as stream:
         config = yaml.safe_load(stream)
@@ -220,19 +254,17 @@ if __name__=='__main__':
     
     traducteur = Translator(src=SRC, tgt=TGT)
 
+
+    logging.info("Loading files.")
     
-    print("="*80)
-    print("TRANSLATE FILES")
-    print("="*80)
-    
-    tex_files = [file for file in os.listdir(IN_DIR) if file.endswith(".tex")]
-    print(str(len(tex_files))+" files to be translated : "+', '.join(tex_files))
+    tex_files = sorted([file for file in os.listdir(IN_DIR) if file.endswith(".tex")])
+    logging.info(str(len(tex_files))+" files to be translated : "+', '.join(tex_files))
     
     for file in tex_files:
         if os.path.exists(OUT_DIR+file):
             os.remove(OUT_DIR+file)
         
-        print("\nCURRENTLY PROCESSING : {}".format(file))
+        logging.info("Processing : {}".format(file))
         start_time = time.time()
         
         # 1. Read the whole text
@@ -247,11 +279,8 @@ if __name__=='__main__':
             for line in translated_text:
                 out_file.write(line+"\n")
         
-        print(f"Time elapsed : {timedelta(seconds=int(time.time() - start_time))}")
+        logging.info(f"Time elapsed : {timedelta(seconds=int(time.time() - start_time))}")
         
         
-    print("="*80)
-    print("ZIPPING FILES")
-    print("="*80)
-    
+    logging.info("Zipping files.")
     shutil.make_archive("translated", 'zip', OUT_DIR)

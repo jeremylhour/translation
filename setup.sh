@@ -2,10 +2,9 @@
 # Main script for textbook translation
 #
 # Jeudi 11 Novembre 2021
-# @author :jeremylhour
+# @author: jeremylhour
 # ----------------------------------------------------------------------
 INSTALL=false
-
 
 ##### DO NO MODIFY BELOW #####
 if [ "$INSTALL" = true ] ; then

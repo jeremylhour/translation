@@ -7,8 +7,8 @@
 # @author : jeremylhour
 # -----------------------------------------------------
 DIR:
-  IN: data/raw/               # input file location
-  OUT: data/translated/       # output file location
+  IN: data/raw/               # input files location
+  OUT: data/translated/       # output files location
 
 LANGUAGES:
   SRC: fr                     # source language

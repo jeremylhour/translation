@@ -131,3 +131,5 @@ dmypy.json
 # Other files
 *.tex
 *.zip
+.DS_Store
+.Rhistory
