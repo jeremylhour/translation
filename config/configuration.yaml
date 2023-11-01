@@ -13,3 +13,6 @@ DIR:
 LANGUAGES:
   SRC: fr                     # source language
   TGT: en                     # target language
+
+MODEL:
+  CACHE: ~/.cache/huggingface/hub

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+pipeline
+
 Created on Thu Nov 11 09:09:08 2021
 
 @author: jeremylhour
 """
 import os
-import sys
 import shutil
 import pandas as pd
 from datetime import datetime, timedelta
@@ -30,10 +31,55 @@ logging.basicConfig(
 )
 
 # ---------------------------------------------------------------------
+# CONSTANTS AND SMALLER FUNCTIONS
+# ---------------------------------------------------------------------     
+def removeConsecutiveDuplicates(s):
+    if len(s)<2:
+        return s
+    if s[0]!=s[1]:
+        return s[0]+removeConsecutiveDuplicates(s[1:])
+    return removeConsecutiveDuplicates(s[1:])
+
+HASH_EXPR = [
+    re.compile(r'\\newpage', re.DOTALL),
+    re.compile(r'.*?\\begin{document}', re.DOTALL),
+    re.compile(r'\\begin{figure}.*?\\end{figure}', re.DOTALL),
+    re.compile(r'\\begin{equation}.*?\\end{equation}', re.DOTALL),
+    re.compile(r'\\begin{equation\*}.*?\\end{equation\*}', re.DOTALL),
+    re.compile(r'\\begin{align}.*?\\end{align}', re.DOTALL),
+    re.compile(r'\\begin{align\*}.*?\\end{align\*}', re.DOTALL),
+    re.compile(r'\\begin{table}.*?\\end{table}', re.DOTALL),
+    re.compile(r'\\begin{tabular}.*?\\end{tabular}', re.DOTALL),
+    re.compile(r'\\begin{float}.*?\\end{float}', re.DOTALL),
+    re.compile(r'\\begin{tikz}.*?\\end{tikz}', re.DOTALL),
+    re.compile(r'\\\$', re.DOTALL),
+    re.compile(r'\$+.*?\$+', re.DOTALL),
+    re.compile(r'\\begin{.*?}', re.DOTALL),
+    re.compile(r'\\end{.*?}', re.DOTALL),
+    re.compile(r'\\texttt{.*?}', re.DOTALL),
+    re.compile(r'\\textbf{.*?}', re.DOTALL),
+    re.compile(r'\\paragraph{.*?}', re.DOTALL),
+    re.compile(r'\\q{.*?}', re.DOTALL),
+    re.compile(r'\\emph{.*?}', re.DOTALL),
+    re.compile(r'\\textit{.*?}', re.DOTALL),
+    re.compile(r'\\label{.*?}', re.DOTALL),
+    re.compile(r'\\url{.*?}', re.DOTALL),
+    re.compile(r'\\cite\[*?.*?\]*?{.*?}', re.DOTALL),
+    re.compile(r'\\citeauthor\[*?.*?\]*?{.*?}', re.DOTALL),
+    re.compile(r'\\citeyear\[*?.*?\]*?{.*?}', re.DOTALL),
+    re.compile(r'\\ref{.*?}', re.DOTALL),
+    re.compile(r'\\eqref{.*?}', re.DOTALL),
+    re.compile(r'\\\%', re.DOTALL),
+    re.compile(r'\\item', re.DOTALL)
+    ]
+
+CACHE_DEFAULT = "~/.cache/huggingface/hub"
+
+# ---------------------------------------------------------------------
 # MAIN CLASS
 # ---------------------------------------------------------------------
 class Translator:
-    def __init__(self, src, tgt, batch_size : int = 10):
+    def __init__(self, src, tgt, cache_dir: str = CACHE_DEFAULT, batch_size: int = 10):
         """
         init the translator for French to English translation
             for more language see : https://huggingface.co/Helsinki-NLP
@@ -41,6 +87,7 @@ class Translator:
         Args:
             src (str): source language.
             tgt (str): target language.
+            cache_dir= (str): The folder where models are cached.
             batch_size (int): batch_size for Transformers inference.
         """
         self.batch_size = batch_size
@@ -48,48 +95,17 @@ class Translator:
         model = "Helsinki-NLP/opus-mt-{src}-{tgt}".format(src=self.src, tgt=self.tgt)
 
         # Initialize the tokenizer and model
-        self.tokenizer = AutoTokenizer.from_pretrained(model)
-        self.model = AutoModelForSeq2SeqLM.from_pretrained(model)
+        self.tokenizer = AutoTokenizer.from_pretrained(model, use_fast=True)
+        self.model = AutoModelForSeq2SeqLM.from_pretrained(model, cache_dir=cache_dir)
 
         # Dictionnary for substitutions
         self.subs = {
             "\oe{}": "oe"
         }
-        
+
         # List for hashing
         self.hash_table = {}
-        self.hash_expr = [
-            re.compile(r'\\newpage', re.DOTALL),
-            re.compile(r'.*?\\begin{document}', re.DOTALL),
-            re.compile(r'\\begin{figure}.*?\\end{figure}', re.DOTALL),
-            re.compile(r'\\begin{equation}.*?\\end{equation}', re.DOTALL),
-            re.compile(r'\\begin{equation\*}.*?\\end{equation\*}', re.DOTALL),
-            re.compile(r'\\begin{align}.*?\\end{align}', re.DOTALL),
-            re.compile(r'\\begin{align\*}.*?\\end{align\*}', re.DOTALL),
-            re.compile(r'\\begin{table}.*?\\end{table}', re.DOTALL),
-            re.compile(r'\\begin{tabular}.*?\\end{tabular}', re.DOTALL),
-            re.compile(r'\\begin{float}.*?\\end{float}', re.DOTALL),
-            re.compile(r'\\begin{tikz}.*?\\end{tikz}', re.DOTALL),
-            re.compile(r'\\\$', re.DOTALL),
-            re.compile(r'\$+.*?\$+', re.DOTALL),
-            re.compile(r'\\begin{.*?}', re.DOTALL),
-            re.compile(r'\\end{.*?}', re.DOTALL),
-            re.compile(r'\\texttt{.*?}', re.DOTALL),
-            re.compile(r'\\textbf{.*?}', re.DOTALL),
-            re.compile(r'\\paragraph{.*?}', re.DOTALL),
-            re.compile(r'\\q{.*?}', re.DOTALL),
-            re.compile(r'\\emph{.*?}', re.DOTALL),
-            re.compile(r'\\textit{.*?}', re.DOTALL),
-            re.compile(r'\\label{.*?}', re.DOTALL),
-            re.compile(r'\\url{.*?}', re.DOTALL),
-            re.compile(r'\\cite\[*?.*?\]*?{.*?}', re.DOTALL),
-            re.compile(r'\\citeauthor\[*?.*?\]*?{.*?}', re.DOTALL),
-            re.compile(r'\\citeyear\[*?.*?\]*?{.*?}', re.DOTALL),
-            re.compile(r'\\ref{.*?}', re.DOTALL),
-            re.compile(r'\\eqref{.*?}', re.DOTALL),
-            re.compile(r'\\\%', re.DOTALL),
-            re.compile(r'\\item', re.DOTALL)
-        ]
+        self.hash_expr = HASH_EXPR
 
     def replace_char(self, string):
         """
@@ -195,11 +211,13 @@ class Translator:
         })
 
         # Finally reform the original lines, including the empty ones, for 1-to-1 mapping with original document
-        translated_lines = pd.concat([df, missing_df], axis=0)\
-                            .sort_values(['id', 'pos_id'])\
-                            .groupby('id')['translation']\
-                            .apply(lambda x: ' '.join(x))\
-                            .to_list()
+        translated_lines = (
+            pd.concat([df, missing_df], axis=0)
+            .sort_values(['id', 'pos_id'])
+            .groupby('id')['translation']
+            .apply(lambda x: ' '.join(x))
+            .to_list()
+        )
         return translated_lines
 
     def process(self, text):
@@ -229,14 +247,6 @@ class Translator:
         logging.info("Decoding lines.")
         translated_lines = [self.decode(item) for item in translated_lines]
         return translated_lines
-            
-def removeConsecutiveDuplicates(s):
-    if len(s)<2:
-        return s
-    if s[0]!=s[1]:
-        return s[0]+removeConsecutiveDuplicates(s[1:])
-    return removeConsecutiveDuplicates(s[1:])
-
 
 if __name__=='__main__':
     now = datetime.now()
@@ -251,14 +261,20 @@ if __name__=='__main__':
     OUT_DIR = config.get('DIR').get('OUT')
     SRC = config.get('LANGUAGES').get('SRC')
     TGT = config.get('LANGUAGES').get('TGT')
+    CACHE = config.get('MODEL').get('CACHE')
     
-    traducteur = Translator(src=SRC, tgt=TGT)
-
+    traducteur = Translator(
+        src=SRC,
+        tgt=TGT,
+        cache_dir=CACHE
+        )
 
     logging.info("Loading files.")
     
-    tex_files = sorted([file for file in os.listdir(IN_DIR) if file.endswith(".tex")])
-    logging.info(str(len(tex_files))+" files to be translated : "+', '.join(tex_files))
+    tex_files = sorted([
+        file for file in os.listdir(IN_DIR) if file.endswith(".tex")
+        ])
+    logging.info(f"{len(tex_files)} files to be translated: {', '.join(tex_files)}")
     
     for file in tex_files:
         if os.path.exists(OUT_DIR+file):
@@ -280,7 +296,6 @@ if __name__=='__main__':
                 out_file.write(line+"\n")
         
         logging.info(f"Time elapsed : {timedelta(seconds=int(time.time() - start_time))}")
-        
-        
+
     logging.info("Zipping files.")
     shutil.make_archive("translated", 'zip', OUT_DIR)
