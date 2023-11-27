@@ -1,0 +1,22 @@
+# -----------------------------------------------------
+# Config file :
+# - input/ouput dir
+# - Open AI model
+# - prompts
+#
+# 25 november 2023
+# @author : jeremylhour
+# -----------------------------------------------------
+DIR:
+  IN: data/raw/               # input files location
+  OUT: data/translated/       # output files location
+
+MODEL: gpt-3.5-turbo          # Open AI model to use
+
+PROMPTS:
+  SYSTEM: "You are an expert in econometrics and machine learning. You job is to translate textbooks from French to English."
+  USER: "Can you translate the following documents from French to English? \
+  This is an excerpt from a textbook whose audience is Master and PhD students in Economics, as well as economists. \
+  It is written in LaTeX. Many elements are technical and related to the field of statistics and machine learning. \
+  Please keep this into account and do not change the equations nor the citations. Do not add content, I only want translation. \
+  Here is the text:"
