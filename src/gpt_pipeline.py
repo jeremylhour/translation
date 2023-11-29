@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 import time
 import yaml
 import logging
+from tqdm import tqdm
 
 from openai import OpenAI
 
@@ -30,9 +31,15 @@ logging.basicConfig(
 # ---------------------------------------------------------------------
 # CONSTANTS AND SMALLER FUNCTIONS
 # ---------------------------------------------------------------------
-# Max token numbers from Open AI is 4097 between input and output,
+
+# Max number of token from Open AI is 4097 between input and output,
 # let's take 1200 for the input, to be sure.
+# This number is used
 NUM_TOKENS_LIMIT = 1200
+
+# Set a limit to send a request to OpenAI.
+# There's not point in sending small sequences, it's probably just section titles etc.
+MAX_INPUT_TOKENS = 30
 
 def split_with_delimiter(x: str, delimiter: str = "\section", start: bool = True):
     """
@@ -100,7 +107,7 @@ def split_long_str(x: str, limit: str = NUM_TOKENS_LIMIT):
     output = []
     current_line = chunks[0]
     for c in chunks[1:]:
-        if approx_num_tokens(current_line) + approx_num_tokens(c) + 1 <= limit:
+        if approx_num_tokens(current_line) + approx_num_tokens(c) <= limit:
             # If adding the next line does not exceed the max length, append it
             current_line += c
         else:
@@ -134,9 +141,10 @@ class OpenAICaller:
             ])
         return completion.choices[0].message.content
 
-if __name__=='__main__':
+if __name__ == '__main__':
     now = datetime.now()
-    logging.info(f"\nThis script translates latex files while preserving equations and special expressions.\nLaunched on {now.strftime('%d, %b %Y, %H:%M:%S')} \n")
+    logging.info(f"This script translates latex files by calling the Open AI API with relevant prompts.\
+                 \nLaunched on {now.strftime('%d, %b %Y, %H:%M:%S')} \n")
 
     logging.info("Loading config.")
     CONFIG_FILE = "config/configuration_gpt.yaml"
@@ -175,21 +183,28 @@ if __name__=='__main__':
 
         # 2. Split it into sections and subsections
         sections = split_chapter(whole_text)
+        chunks = []
+        for s in sections:
+            chunks += split_long_str(s, limit=NUM_TOKENS_LIMIT)
+
 
         # 3. Call Open AI model
-        if False:
-            for s in sections:
-                if len(s) < 100:
-                    output = s
-                    continue
-                else:
-                    print(s)
-                    output = translator(prompt=s)
-                    print(output)
-                    break
-                break
-            break
-        print(len(sections))  
-        print(max([approx_num_tokens(i) for i in sections]))
+        translated = []
+        for c in tqdm(chunks):
+            if approx_num_tokens(c) < MAX_INPUT_TOKENS:
+                translated.append(c)
+            else:
+                output = translator(prompt=c)
+                translated.append(output)
+
+        translated_text = ''.join(translated)
+
+        # 4. Write to file
+        with open(OUT_DIR+file, 'a') as out_file:
+            out_file.write(translated_text) 
 
         logging.info(f"Time elapsed : {timedelta(seconds=int(time.time() - start_time))}")
+        break
+
+    logging.info("Zipping files.")
+    shutil.make_archive("translated", 'zip', OUT_DIR)

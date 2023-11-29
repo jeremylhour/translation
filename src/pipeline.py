@@ -246,9 +246,10 @@ class Translator:
         translated_lines = [self.decode(item) for item in translated_lines]
         return translated_lines
 
-if __name__=='__main__':
+if __name__ == '__main__':
     now = datetime.now()
-    logging.info(f"\nThis script translates latex files while preserving equations and special expressions.\nLaunched on {now.strftime('%d, %b %Y, %H:%M:%S')} \n")
+    logging.info(f"This script translates latex files while preserving equations and special expressions.\
+                 \nLaunched on {now.strftime('%d, %b %Y, %H:%M:%S')} \n")
 
     logging.info("Loading config.")
     CONFIG_FILE = "config/configuration.yaml"
