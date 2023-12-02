@@ -35,10 +35,10 @@ logging.basicConfig(
 # Max number of token from Open AI is 4097 between input and output,
 # let's take 1200 for the input, to be sure.
 # This number is used
-NUM_TOKENS_LIMIT = 1200
+NUM_TOKENS_LIMIT = 1_200
 
 # Set a limit to send a request to OpenAI.
-# There's not point in sending small sequences, it's probably just section titles etc.
+# There's no point in sending small sequences, it's probably just section titles etc.
 MAX_INPUT_TOKENS = 30
 
 def split_with_delimiter(x: str, delimiter: str = "\section", start: bool = True):
@@ -187,7 +187,6 @@ if __name__ == '__main__':
         for s in sections:
             chunks += split_long_str(s, limit=NUM_TOKENS_LIMIT)
 
-
         # 3. Call Open AI model
         translated = []
         for c in tqdm(chunks):
@@ -204,7 +203,6 @@ if __name__ == '__main__':
             out_file.write(translated_text) 
 
         logging.info(f"Time elapsed : {timedelta(seconds=int(time.time() - start_time))}")
-        break
 
     logging.info("Zipping files.")
     shutil.make_archive("translated", 'zip', OUT_DIR)
